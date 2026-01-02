@@ -9,7 +9,7 @@
  * Description:         Safely enable RAW uploads and convert existing images to AVIF format.
  * Tags:                raw, uploads, media library, optimization
  * 
- * Version:             1.26010216
+ * Version:             1.26010217
  * Requires at least:   5.3
  * Requires PHP:        7.4
  * 

@@ -7,7 +7,7 @@ Support Link: https://thisismyurl.com/contact/
 Tags: raw, media, uploader, image, permissions, timu-core
 Requires at least: 5.3
 Tested up to: 6.9
-Stable tag: 1.26010216
+Stable tag: 1.26010217
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 GitHub Plugin URI: https://github.com/thisismyurl/thisismyurl-raw-support/
@@ -52,6 +52,9 @@ It is a shared library used across our plugins to provide a consistent UI, unifi
 1. The modernized RAW Configuration dashboard featuring the TIMU Switch toggle.
 
 == Changelog ==
+
+= 1.26010217 =
+* Core hierarchy updated via Initial Launch
 
 = 1.26010216 =
 * Core hierarchy updated via Initial Launch
