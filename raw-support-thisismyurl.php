@@ -91,7 +91,6 @@ class TIMU_RAW_Support extends TIMU_Core_v1 {
 		/**
 		 * Actions: UI enhancements for the WordPress Admin dashboard.
 		 */
-		add_action( 'admin_head', array( $this, 'fix_raw_media_library_display' ) );
 		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
 
 		/**
@@ -120,8 +119,7 @@ class TIMU_RAW_Support extends TIMU_Core_v1 {
 		 * Dynamically build the radio options based on the presence of siblings.
 		 */
 		$format_options = array(
-			'asis'     => __( 'Upload as unsafe .raw', 'raw-support-thisismyurl' ),
-			'sanitize' => __( 'Sanitize XML for safe .raw', 'raw-support-thisismyurl' ),
+			'raw'     => __( 'Upload as RAW file format(s).', 'raw-support-thisismyurl' )
 		);
 
 		if ( $webp_active ) {
@@ -149,7 +147,7 @@ class TIMU_RAW_Support extends TIMU_Core_v1 {
 						'parent'    => 'enabled',
 						'is_parent' => true,
 						'options'   => $format_options,
-						'default'   => 'sanitize',
+						'default'   => 'raw',
 						'desc'      => ( ! $webp_active || ! $avif_active )
 									? __( 'Install <a href="https://thisismyurl.com/thisismyurl-webp-support/">WebP</a> or <a href="https://thisismyurl.com/thisismyurl-avif-support/">AVIF</a> plugins for more options.', 'raw-support-thisismyurl' )
 									: __( 'Choose how to process .raw files upon upload.', 'raw-support-thisismyurl' ),
@@ -206,7 +204,7 @@ class TIMU_RAW_Support extends TIMU_Core_v1 {
 		if ( false === get_option( $option_name ) ) {
 			update_option( $option_name, array(
 				'enabled'       => 1,
-				'target_format' => 'sanitize',
+				'target_format' => 'raw',
 			) );
 		}
 	}
@@ -281,92 +279,6 @@ class TIMU_RAW_Support extends TIMU_Core_v1 {
 		return $mimes;
 	}
 
-	/**
-	 * XML/XSS Sanitization Routine
-	 *
-	 * Strips potentially dangerous elements such as PHP tags, <script> blocks, 
-	 * and 'on*' event handlers to mitigate XSS risks in RAW vectors.
-	 *
-	 * @param array $file Standard WordPress file data.
-	 * @return array Sanitized file data.
-	 */
-	private function sanitize_raw( $file ) {
-		$file_path = $file['tmp_name'];
-		$fs        = $this->init_fs();
-		$content   = $fs->get_contents( $file_path );
-
-		if ( empty( $content ) ) {
-			return $file;
-		}
-
-		/**
-		 * Pattern matching for malicious injections.
-		 */
-		$content = preg_replace( '/<\?php.*?\?>/is', '', $content );
-		$content = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $content );
-		$content = preg_replace( '/\son\w+=(["\'])(.*?)\1/i', '', $content );
-		$content = preg_replace( '/href=(["\'])javascript:(.*?)\1/i', 'href="#"', $content );
-
-		$fs->put_contents( $file_path, $content );
-
-		return $file;
-	}
-
-	/**
-	 * Admin UI Fix
-	 *
-	 * Injects CSS into the admin head to ensure RAW thumbnails scale correctly 
-	 * within the Media Library grid and attachment details view.
-	 */
-	public function fix_raw_media_library_display() {
-		?>
-		<style id="timu-raw-support-admin-css">
-			.thumbnail img[src$=".raw"], 
-			[data-name="view-attachment"] .details img[src$=".raw"] {
-				width: 100% !important;
-				height: auto !important;
-			}
-		</style>
-		<?php
-	}
-
-	/**
-	 * Upload Traffic Controller
-	 *
-	 * Intercepts RAW uploads to determine if the file should be sanitized 
-	 * as a vector or rasterized into WebP/AVIF via the Shared Core.
-	 *
-	 * @param array $file The temporary file data from $_FILES.
-	 * @return array Processed file data.
-	 */
-	public function process_raw_upload( $file ) {
-		/**
-		 * Validation: Ensure the file is an RAW and the plugin is active.
-		 */
-		if ( 'image/raw+xml' !== $file['type'] || 1 !== (int) $this->get_plugin_option( 'enabled', 1 ) ) {
-			return $file;
-		}
-
-		$mode = $this->get_plugin_option( 'target_format', 'sanitize' );
-
-		/**
-		 * Rasterization Path: Convert RAW to raster formats.
-		 */
-		if ( in_array( $mode, array( 'webp', 'avif' ), true ) ) {
-			$quality = (int) $this->get_plugin_option( $mode . '_quality', 80 );
-			
-			/**
-			 * The process_image_conversion method handles Imagick format 
-			 * definitions and resource management centrally.
-			 */
-			return $this->process_image_conversion( $file, $mode, $quality );
-		}
-
-		/**
-		 * Vector Path: Sanitize or leave as-is.
-		 */
-		return ( 'sanitize' === $mode ) ? $this->sanitize_raw( $file ) : $file;
-	}
 }
 
 /**
