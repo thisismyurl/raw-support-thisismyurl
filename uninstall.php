@@ -1,6 +1,6 @@
 <?php
 /**
- * RAW Support by thisismyurl.com - Uninstaller
+ * RAW Support by thisismyurl - Uninstaller
  * This script runs automatically when a user deletes the plugin via the WordPress dashboard.
  */
 

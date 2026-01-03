@@ -2,7 +2,7 @@
 /**
  * Author:              Christopher Ross
  * Author URI:          https://thisismyurl.com/?source=raw-support-thisismyurl
- * Plugin Name:         RAW Support by thisismyurl.com
+ * Plugin Name:         RAW Support by thisismyurl
  * Plugin URI:          https://thisismyurl.com/raw-support-thisismyurl/?source=raw-support-thisismyurl
  * Donate link:         https://thisismyurl.com/raw-support-thisismyurl/#register?source=raw-support-thisismyurl
  * 
