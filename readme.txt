@@ -13,7 +13,7 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 GitHub Plugin URI: https://github.com/thisismyurl/thisismyurl-raw-support/
 Primary Branch: main
 
-Safely enable RAW uploads and management in the WordPress Media Library utilizing the modernized TIMU Core Library.
+Safely enable RAW uploads and management in the WordPress Media Library..
 
 == Description ==
 
