@@ -1,7 +1,7 @@
-﻿# raw-support-thisismyurl
+﻿# RAW Support by thisismyurl.com
 ![Version](https://img.shields.io/badge/version-1.260102-blue.svg)
 
-Professional WordPress plugin.
+Safely enable RAW uploads and management in the WordPress Media Library utilizing the modernized TIMU Core Library.
 
 ## ðŸ—ºï¸ Roadmap & Activity
 
