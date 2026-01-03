@@ -2,7 +2,7 @@
 
 # RAW Support by thisismyurl.com
 ![Version](https://img.shields.io/badge/version-1.26010222-blue.svg)
-🔗 **[Plugin Homepage](https://thisismyurl.com/raw-support-thisismyurl/#register)**
+🔗 **[Register](https://thisismyurl.com/raw-support-thisismyurl/#register)**
 
 Stop struggling with WordPress's default restrictions on vector graphics. As a designer or developer, you need the flexibility of RAW files for crisp, scalable visuals, but WordPress blocks them by default due to their XML-based nature. RAW Support by thisismyurl.com solves this by safely unlocking RAW uploads so you can focus on building beautiful, responsive sites without technical roadblocks.
 
@@ -23,13 +23,11 @@ The plugin is designed with a **Non-Destructive** architecture, ensuring it is a
 3. (Optional) Visit 'Tools > RAW Support' to manage your settings.
 
 ## ❓ FAQ
-= Is this plugin secure? =
+### Is this plugin secure?
 While this plugin enables the upload of RAW files, it is recommended that only trusted administrators be given upload permissions, as RAWs are XML-based assets.
-
-= Will this slow down my site? =
+### Will this slow down my site?
 No. The plugin uses minimal hooks and only runs its CSS "fix" within the administrative dashboard, ensuring zero impact on your front-end performance.
-
-= What is the TIMU Core Library? =
+### What is the TIMU Core Library?
 It is a shared library used across our plugins to provide a consistent UI, unified developer support, and version-safe loading to prevent plugin conflicts.
 
 ## 🗺️ Roadmap & Activity
