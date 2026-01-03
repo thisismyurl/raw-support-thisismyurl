@@ -1,4 +1,4 @@
-=== RAW Support by thisismyurl.com ===
+﻿=== RAW Support by thisismyurl.com ===
 Contributors: thisismyurl
 Author: thisismyurl
 Author URI: https://thisismyurl.com/
