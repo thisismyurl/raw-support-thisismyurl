@@ -68,7 +68,7 @@ It is a shared library used across our plugins to provide a consistent UI, unifi
 
 == Pro Features ==
 
-I’ve built RAW Support by thisismyurl.com to be a powerful, free resource for the WordPress community, and I am committed to ensuring that no features are ever locked behind a paywall. If the plugin provides value to you, I invite you to register and contribute whatever amount you feel is fair. These funds support my ongoing work providing development workshops for at-risk youth and underrepresented groups.
+I've built RAW Support by thisismyurl.com to be a powerful, free resource for the WordPress community, and I am committed to ensuring that no features are ever locked behind a paywall. If the plugin provides value to you, I invite you to register and contribute whatever amount you feel is fair. These funds support my ongoing work providing development workshops for at-risk youth and underrepresented groups.
 
 Registered users benefit from:
 
@@ -114,7 +114,7 @@ You can also help translate this plugin into your language via [translate.wordpr
 
 == Disclaimer ==
 
-Safety First! Before running RAW Support by thisismyurl.com, please take a moment to perform a full database backup. Because this tool performs deep optimization, we want to ensure your data is perfectly safe. While we’ve designed this to be as reliable as possible, we cannot be held responsible for data loss, so a quick backup is always the best way to go!
+Safety First! Before running RAW Support by thisismyurl.com, please take a moment to perform a full database backup. Because this tool performs deep optimization, we want to ensure your data is perfectly safe. While we've designed this to be as reliable as possible, we cannot be held responsible for data loss, so a quick backup is always the best way to go!
 
 
 
@@ -122,7 +122,7 @@ Safety First! Before running RAW Support by thisismyurl.com, please take a momen
 == Shortcodes ==
 
 == Privacy Policy ==
-We believe you should own your data. This plugin does not track you, nor does it store any personal information on your server. The only external communication it makes is a quick "handshake" with our license API to validate your plugin. If you have specific questions or concerns, please check out the privacy.MD file included in your download, or visit our website at [GitHub](https://thisismyurl.com/privacy). We’re always happy to be transparent about how we work!
+We believe you should own your data. This plugin does not track you, nor does it store any personal information on your server. The only external communication it makes is a quick "handshake" with our license API to validate your plugin. If you have specific questions or concerns, please check out the privacy.MD file included in your download, or visit our website at [GitHub](https://thisismyurl.com/privacy). We're always happy to be transparent about how we work!
 
 
 
