@@ -1,0 +1,5 @@
+{
+    "core": "https://wordpress.org/latest.zip",
+    "plugins": [ "." ],
+    "themes": [ "twentytwentyfive" ]
+}

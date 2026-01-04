@@ -1,0 +1,27 @@
+{
+    "name": "thisismyurl/raw-support-thisismyurl",
+    "description": "",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Christopher Ross",
+            "email": "cross@thisismyurl.com",
+            "homepage": "https://thisismyurl.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">=7.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "ThisIsMyUrl\\RAW_SUPPORT_THISISMYURL\\": "src/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "composer/installers": true
+        }
+    }
+}

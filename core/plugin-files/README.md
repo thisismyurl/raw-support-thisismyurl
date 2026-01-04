@@ -77,7 +77,7 @@ No. The plugin optimizes the files you upload to ensure they are web-ready witho
 
 ## Pro Features
 
-I���������ve built WebP Support by thisismyurl to be a powerful, free resource for the WordPress community, and I am committed to ensuring that no features are ever locked behind a paywall.
+I���ve built WebP Support by thisismyurl to be a powerful, free resource for the WordPress community, and I am committed to ensuring that no features are ever locked behind a paywall.
 
 
 

@@ -1,0 +1,27 @@
+{
+    "name": "thisismyurl/{plugin_slug}",
+    "description": "{plugin_description}",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Christopher Ross",
+            "email": "cross@thisismyurl.com",
+            "homepage": "https://thisismyurl.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">={plugin_php_version}"
+    },
+    "autoload": {
+        "psr-4": {
+            "ThisIsMyUrl\\{plugin_namenospace}\\": "src/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "composer/installers": true
+        }
+    }
+}

@@ -2,478 +2,198 @@
 /**
  * TIMU Admin UI Component
  *
- * This class handles all aspects of the WordPress Admin experience, including
- * the Settings API registration, card-based UI rendering, and the paginated logs.
- *
  * @package     TIMU_Core
- * @version     1.26010212
- * 
+ * @version     1.2601.031250
+ * @since       1.0.0
  */
+
+declare(strict_types=1);
+
+namespace TIMU\Core;
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
 }
 
+/**
+ * Admin UI Class
+ */
 class TIMU_Admin_v1 {
 
-    /** @var object Reference to the main Core instance for shared helpers. */
-    private $core;
+	/**
+	 * Constructor using Promotion.
+	 */
+	public function __construct( private readonly TIMU_Core_v1 $core ) {
+		add_action( 'admin_init', [ $this, 'register_settings_api' ] );
+	}
 
-    /**
-     * Constructor
-     * @param object $core The main TIMU_Core_v1 instance.
-     */
-   public function __construct( $core ) {
-    $this->core = $core;
+	/**
+	 * Registers Settings API components.
+	 */
+	public function register_settings_api(): void {
+		if ( ! is_admin() || ! function_exists( 'add_settings_section' ) ) {
+			return;
+		}
 
-    // Initialize Settings API registration
-    add_action( 'admin_init', array( $this, 'register_settings_api' ) );
-    
-    // Corrected Sidebar Hook: Point directly to $this
-    add_action( 'timu_sidebar_under_banner', array( $this, 'render_default_sidebar_actions' ) );
-}
-    /**
-     * 1. SETTINGS API REGISTRATION
-     * Queues the registration logic for the admin_init hook.
-     */
-    public function register_settings_api() {
-        // Ensure we are inside the admin_init hook context
-        if ( ! did_action( 'admin_init' ) ) {
-            add_action( 'admin_init', array( $this, 'register_settings_api' ) );
-            return;
-        }
+		register_setting(
+			$this->core->options_group,
+			$this->core->plugin_slug . '_options',
+			[ 'sanitize_callback' => [ $this->core, 'sanitize_core_options' ] ]
+		);
 
-        register_setting( $this->core->options_group, $this->core->plugin_slug . '_options', array(
-            'sanitize_callback' => array( $this->core, 'sanitize_core_options' ),
-        ) );
+		if ( empty( $this->core->settings_blueprint ) ) {
+			return;
+		}
 
-        if ( empty( $this->core->settings_blueprint ) ) {
-            return;
-        }
+		foreach ( $this->core->settings_blueprint as $section_id => $section ) {
+			add_settings_section( $section_id, $section['title'] ?? '', null, $this->core->plugin_slug );
 
-        foreach ( $this->core->settings_blueprint as $section_id => $section ) {
-            add_settings_section( $section_id, $section['title'] ?? '', null, $this->core->plugin_slug );
+			foreach ( (array) ( $section['fields'] ?? [] ) as $field_id => $args ) {
+				add_settings_field(
+					$field_id,
+					$args['label'] ?? '',
+					[ $this, 'render_generated_field' ],
+					$this->core->plugin_slug,
+					$section_id,
+					array_merge( $args, [ 'id' => $field_id ] )
+				);
+			}
+		}
+	}
 
-            if ( empty( $section['fields'] ) ) {
-                continue;
-            }
+	/**
+	 * Renders dynamic setting fields.
+	 */
+	public function render_generated_field( array $args ): void {
+		$options = (array) $this->core->get_plugin_option();
+		$value   = isset( $options[ $args['id'] ] ) && '' !== $options[ $args['id'] ]
+				? $options[ $args['id'] ]
+				: ( $args['default'] ?? '' );
+		
+		$name = sprintf( '%s_options[%s]', $this->core->plugin_slug, $args['id'] );
+		$is_master = ( 'enabled' === $args['id'] ) ? ' timu-master-toggle' : '';
+		
+		$conditional_attrs = '';
+		if ( ! empty( $args['show_if'] ) ) {
+			$conditional_attrs = sprintf( 
+				' data-show-if-field="%s" data-show-if-value="%s"', 
+				esc_attr( $args['show_if']['field'] ), 
+				esc_attr( $args['show_if']['value'] ) 
+			);
+		}
 
-            foreach ( (array)$section['fields'] as $field_id => $args ) {
-                add_settings_field(
-                    $field_id,
-                    $args['label'] ?? '',
-                    array( $this, 'render_generated_field' ),
-                    $this->core->plugin_slug,
-                    $section_id,
-                    array_merge( $args, array( 'id' => $field_id ) )
-                );
-            }
-        }
-    }
+		echo '<div class="timu-field-wrapper' . esc_attr( $is_master ) . '"' . $conditional_attrs . '>';
 
-    
-public function render_generated_field( $args ) {
-    $options = $this->core->get_plugin_option();
-    $value   = isset($options[ $args['id'] ]) && '' !== $options[ $args['id'] ] 
-            ? $options[ $args['id'] ] 
-           : ( $args['default'] ?? '' );
-    $name    = "{$this->core->plugin_slug}_options[{$args['id']}]";
-    
-    $is_master = ( 'enabled' === $args['id'] ) ? ' timu-master-toggle' : '';
-    
-    // Generate dynamic attributes for the JavaScript visibility controller
-    $conditional_attrs = '';
-    if ( ! empty( $args['show_if'] ) && is_array( $args['show_if'] ) ) {
-        $conditional_attrs = ' data-show-if-field="' . esc_attr( $args['show_if']['field'] ) . '"';
-        $conditional_attrs .= ' data-show-if-value="' . esc_attr( $args['show_if']['value'] ) . '"';
-    }
+		switch ( $args['type'] ) {
+			case 'toggle':
+				printf( '<label class="timu-switch"><input type="checkbox" name="%s" value="1" %s /><span class="timu-slider"></span></label>', esc_attr( $name ), checked( 1, (int) $value, false ) );
+				break;
+			case 'range':
+				echo '<div class="timu-range-container" style="display:flex; align-items:center; gap:12px;">';
+				printf( '<input type="range" name="%s" value="%s" min="%d" max="%d" oninput="this.nextElementSibling.value = this.value" style="flex-grow:1;" />', esc_attr( $name ), esc_attr( (string) $value ), $args['min'] ?? 0, $args['max'] ?? 100 );
+				printf( '<output style="font-weight:bold; min-width:30px;">%d</output>%%', (int) $value );
+				echo '</div>';
+				break;
+			case 'color':
+				printf( '<input type="text" name="%s" value="%s" class="timu-color-picker" />', esc_attr( $name ), esc_attr( (string) $value ) );
+				break;
+			default:
+				printf( '<input type="text" name="%s" value="%s" class="regular-text" />', esc_attr( $name ), esc_attr( (string) $value ) );
+				break;
+		}
 
-    echo '<div class="timu-field-wrapper' . esc_attr( $is_master ) . '"' . $conditional_attrs . '>';
-    
-    switch ( $args['type'] ) {
-            echo '<input type="checkbox" name="' . esc_attr( $name ) . '" id="' . esc_attr( $args['id'] ) . '" value="1" ' . checked( 1, (int)$value, false ) . ' />';
-            echo '<span class="timu-slider"></span></label>';
-            break;
+		if ( ! empty( $args['desc'] ) ) {
+			echo '<p class="description">' . wp_kses_post( $args['desc'] ) . '</p>';
+		}
+		echo '</div>';
+	}
 
-        case 'range':
-            echo '<div class="timu-range-container" style="display:flex; align-items:center; gap:12px;">';
-            echo '<input type="range" name="' . esc_attr( $name ) . '" id="' . esc_attr( $args['id'] ) . '" value="' . esc_attr( $value ) . '" step="' . esc_attr( $args['step'] ?? '1' ) . '" min="' . esc_attr( $args['min'] ?? '0' ) . '" max="' . esc_attr( $args['max'] ?? '100' ) . '" oninput="this.nextElementSibling.value = this.value" style="flex-grow:1;" />';
-            echo '<output style="font-weight:bold; min-width:30px;">' . esc_html( $value ) . '</output>%';
-            echo '</div>';
-            break;
+	/**
+	 * Renders main settings page.
+	 */
+	public function render_settings_page(): void {
+		?>
+		<div class="wrap timu-admin-wrap">
+			<div class="timu-header"><h1><?php echo esc_html( get_admin_page_title() ); ?></h1></div>
+			<form method="post" action="options.php">
+				<?php settings_fields( $this->core->options_group ); ?>
+				<div id="poststuff">
+					<div id="post-body" class="metabox-holder columns-2">
+						<div id="post-body-content">
+							<?php foreach ( (array) $this->core->settings_blueprint as $section_id => $section ) : ?>
+								<div class="timu-card">
+									<div class="timu-card-header"><?php echo esc_html( $section['title'] ); ?></div>
+									<div class="timu-card-body"><table class="form-table"><?php do_settings_fields( $this->core->plugin_slug, $section_id ); ?></table></div>
+								</div>
+							<?php endforeach; ?>
+							<?php submit_button(); ?>
+							<?php $this->render_unprocessed_log(); ?>
+							<?php $this->render_processing_log(); ?>
+						</div>
+						<?php $this->render_core_sidebar(); ?>
+					</div>
+				</div>
+			</form>
+		</div>
+		<?php
+	}
 
-        case 'select':
-            echo '<select name="' . esc_attr( $name ) . '" id="' . esc_attr( $args['id'] ) . '" class="regular-text">';
-            foreach ( (array)$args['options'] as $opt_val => $opt_label ) {
-                echo '<option value="' . esc_attr( $opt_val ) . '" ' . selected( $value, $opt_val, false ) . '>' . esc_html( $opt_label ) . '</option>';
-            }
-            echo '</select>';
-            break;
+	/**
+	 * Renders sidebar container.
+	 */
+	public function render_core_sidebar(): void {
+		?>
+		<div id="postbox-container-1" class="postbox-container" style="width: 280px; float: right; margin-left: 20px;">
+			<div class="postbox">
+				<div class="inside">
+					<?php do_action( 'timu_sidebar_under_banner', $this->core->plugin_slug ); ?>
+				</div>
+			</div>
+		</div>
+		<?php
+	}
 
-        case 'multicheck':
-            echo '<div class="timu-multicheck-list" style="max-height:150px; overflow-y:auto; background:#f6f7f7; padding:10px; border:1px solid #dcdcde;">';
-            foreach ( (array)$args['options'] as $opt_val => $opt_label ) {
-                $checked = ( is_array( $value ) && in_array( $opt_val, $value ) ) ? 'checked' : '';
-                echo '<label style="display:block; margin-bottom:5px;">';
-                echo '<input type="checkbox" name="' . esc_attr( $name ) . '[]" value="' . esc_attr( $opt_val ) . '" ' . $checked . ' /> ' . esc_html( $opt_label );
-                echo '</label>';
-            }
-            echo '</div>';
-            break;
+	/**
+	 * Renders default bulk actions in sidebar.
+	 */
+	public function render_default_sidebar_actions( string $slug ): void {
+		if ( $slug !== $this->core->plugin_slug ) {
+			return;
+		}
+		$is_enabled = (int) $this->core->get_plugin_option( 'enabled', 1 );
+		?>
+		<button type="button" id="timu-run-bulk" class="button button-primary" style="width: 100%;" <?php disabled( $is_enabled, 0 ); ?>>
+			<?php echo $is_enabled ? esc_html__( 'Bulk Process Library', 'timu' ) : esc_html__( 'Enable Plugin to Process', 'timu' ); ?>
+		</button>
+		<?php
+	}
 
-        case 'media':
-            echo '<div class="timu-media-uploader">';
-            echo '<input type="text" name="' . esc_attr( $name ) . '" id="' . esc_attr( $args['id'] ) . '" value="' . esc_attr( $value ) . '" class="regular-text" style="display:block; margin-bottom:5px;" />';
-            echo '<button type="button" class="button media_btn" data-target="#' . esc_attr( $args['id'] ) . '">' . esc_html__('Select Image', 'timu') . '</button>';
-            echo '</div>';
-            break;
+	/**
+	 * Injects re-optimize button into media modal.
+	 */
+	public function add_media_sidebar_actions( array $form_fields, \WP_Post $post ): array {
+		$form_fields['timu_optimization'] = [
+			'label' => __( 'Optimization', 'timu' ),
+			'input' => 'html',
+			'html'  => sprintf( '<button type="button" class="button timu-process-single" data-id="%d">Re-optimize</button>', (int) $post->ID ),
+		];
+		return $form_fields;
+	}
 
-        case 'radio':
-    if ( ! empty( $args['options'] ) ) {
-        // Force the first option as the value if the current value is empty or null
-        if ( empty( $value ) ) {
-            $value = array_key_first( $args['options'] );
-        }
+	/**
+	 * Renders tables of images.
+	 */
+	public function render_unprocessed_log(): void {
+		$stats = $this->core->get_bulk_stats();
+		if ( $stats['unprocessed'] > 0 ) {
+			echo '<div class="timu-card"><div class="timu-card-header">' . esc_html__( 'Unprocessed Images', 'timu' ) . ' (' . $stats['unprocessed'] . ')</div></div>';
+		}
+	}
 
-        foreach ( $args['options'] as $opt_val => $opt_label ) {
-            // WordPress checked() returns checked='checked' if $opt_val == $value
-            $checked_attr = checked( $opt_val, $value, false );
-
-            echo '<label style="display:block; margin-bottom:5px;">';
-            echo '<input type="radio" name="' . esc_attr( $name ) . '" value="' . esc_attr( $opt_val ) . '" ' . $checked_attr . ' class="timu-conditional-trigger" /> ';
-            echo esc_html( $opt_label ) . '</label>';
-        }
-    }
-    break;
-            
-        case 'color': // NEW: WordPress Native Color Picker
-            echo '<input type="text" name="' . esc_attr( $name ) . '" id="' . esc_attr( $args['id'] ) . '" value="' . esc_attr( $value ) . '" class="timu-color-picker" data-default-color="' . esc_attr( $args['default'] ?? '#2271b1' ) . '" />';
-            break;
-
-        case 'media': // NEW: WP Media Library Uploader
-            echo '<div class="timu-media-control" style="display:flex; gap:10px; align-items:center;">';
-            echo '<input type="text" name="' . esc_attr( $name ) . '" id="' . esc_attr( $args['id'] ) . '" value="' . esc_attr( $value ) . '" class="regular-text" />';
-            echo '<button type="button" class="button media_btn" data-target="#' . esc_attr( $args['id'] ) . '">' . esc_html__('Select File', 'timu') . '</button>';
-            echo '</div>';
-            if ( ! empty( $value ) ) {
-                echo '<div class="timu-media-preview" style="margin-top:10px; max-width:150px; border:1px solid #ccd0d4; padding:5px; background:#fff;">';
-                echo '<img src="' . esc_url( $value ) . '" style="max-width:100%; height:auto; display:block;" />';
-                echo '</div>';
-            }
-            break;
-                case 'date':
-                echo '<input type="text" name="' . esc_attr( $name ) . '" id="' . esc_attr( $args['id'] ) . '" value="' . esc_attr( $value ) . '" class="timu-datepicker regular-text" autocomplete="off" />';
-                break;
-    
-        case 'password':
-            echo '<div class="timu-password-wrapper" style="position:relative; display:inline-block;">';
-            echo '<input type="password" name="' . esc_attr( $name ) . '" id="' . esc_attr( $args['id'] ) . '" value="' . esc_attr( $value ) . '" class="regular-text" />';
-            echo '<button type="button" class="button timu-toggle-password" style="margin-left:5px;">' . esc_html__('Show', 'timu') . '</button>';
-            echo '</div>';
-            break;
-
-        case 'code':
-            echo '<textarea name="' . esc_attr( $name ) . '" id="' . esc_attr( $args['id'] ) . '" class="timu-code-editor" rows="5" style="width:100%; font-family:monospace;">' . esc_textarea( $value ) . '</textarea>';
-            break;
-
-        case 'hr':
-            echo '<hr style="border: 0; border-top: 1px solid #dcdcde; margin: 20px 0;" />';
-            break;
-
-        case 'license':
-            echo '<div class="timu-license-wrapper" style="position:relative; display:inline-block;">';
-            echo '<input type="text" name="' . esc_attr( $name ) . '" id="' . esc_attr( $args['id'] ) . '" value="' . esc_attr( $value ) . '" class="regular-text" />';
-            echo '</div>';
-            break;
-        default:
-            echo '<input type="' . esc_attr( $args['type'] ) . '" name="' . esc_attr( $name ) . '" id="' . esc_attr( $args['id'] ) . '" value="' . esc_attr( $value ) . '" class="regular-text" />';
-            break;
-    }
-
-    if ( ! empty( $args['desc'] ) ) {
-        echo '<p class="description">' . wp_kses_post( $args['desc'] ) . '</p>';
-    }
-    echo '</div>';
-}
-    public function render_progress_bar($percent = 0) {
- 
-}
-
-public function render_nav_tabs() {
-    $current_tab = isset( $_GET['tab'] ) ? $_GET['tab'] : 'general';
-    $tabs = array(
-        'general' => __('General Settings', 'timu'),
-        'bulk'    => __('Bulk Operations', 'timu'),
-        'tools'   => __('Advanced Tools', 'timu')
-    );
-
-    echo '<h2 class="nav-tab-wrapper">';
-    foreach ( $tabs as $tab => $name ) {
-        $active = ( $current_tab === $tab ) ? 'nav-tab-active' : '';
-        echo '<a class="nav-tab ' . $active . '" href="?page=' . $this->core->plugin_slug . '&tab=' . $tab . '">' . esc_html($name) . '</a>';
-    }
-    echo '</h2>';
-}
-
-public function add_help_tabs() {
-    $screen = get_current_screen();
-    if ( $screen->id !== 'settings_page_' . $this->core->plugin_slug ) return;
-
-    $screen->add_help_tab( array(
-        'id'      => 'timu_general_help',
-        'title'   => __('Optimization Help', 'timu'),
-        'content' => '<p>' . __('Instructions for WebP/AVIF settings...', 'timu') . '</p>',
-    ) );
-}
-
-public function render_admin_notices() {
-    if ( isset( $_GET['settings-updated'] ) ) {
-        echo '<div class="notice notice-success is-dismissible"><p>' . __('Settings saved successfully.', 'timu') . '</p></div>';
-    }
-}
-public function add_media_sidebar_actions( $form_fields, $post ) {
-    $form_fields['timu_optimization'] = array(
-        'label' => __('Optimization', 'timu'),
-        'input' => 'html',
-        'html'  => '<button type="button" class="button timu-process-single" data-id="'.$post->ID.'">Re-optimize</button>',
-    );
-    return $form_fields;
-}
-    /**
-     * 3. THE SETTINGS PAGE MAIN WRAPPER
-     */
-    public function render_settings_page() {
-        ?>
-        <div class="wrap timu-admin-wrap">
-            <?php $this->render_core_header(); ?>
-            <form method="post" action="options.php">
-                <?php settings_fields( $this->core->options_group ); ?>
-                <div id="poststuff">
-                    <div id="post-body" class="metabox-holder columns-2">
-                        <div id="post-body-content">
-                            <?php foreach ( (array)$this->core->settings_blueprint as $section_id => $section ) : ?>
-                                <div class="timu-card">
-                                    <div class="timu-card-header"><?php echo esc_html( $section['title'] ); ?></div>
-                                    <div class="timu-card-body">
-                                        <table class="form-table"><?php do_settings_fields( $this->core->plugin_slug, $section_id ); ?></table>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                            
-                            <?php submit_button( null, 'primary large' ); ?>
-                            
-                            <?php $this->render_unprocessed_log(); ?>
-                            <?php $this->render_processing_log(); ?>
-                        </div>
-                        <?php $this->render_core_sidebar(); ?>
-                    </div>
-                </div>
-            </form>
-            <?php $this->render_core_footer(); ?>
-        </div>
-        <?php
-    }
-
-    /**
-     * 4. LOG: UNPROCESSED IMAGES (PAGINATED)
-     */
-    public function render_unprocessed_log() {
-        $prefix = $this->get_internal_prefix();
-        $page = isset( $_GET['unpaged'] ) ? max( 1, intval( $_GET['unpaged'] ) ) : 1;
-        
-        $query = new WP_Query( array(
-            'post_type'      => 'attachment',
-            'post_mime_type' => array( 'image/jpeg', 'image/png' ),
-            'posts_per_page' => 20,
-            'paged'          => $page,
-            'meta_query'     => array( array( 'key' => "_{$prefix}_savings", 'compare' => 'NOT EXISTS' ) )
-        ) );
-
-        echo '<div class="timu-card timu-unprocessed-log" style="margin-top:20px; border-left:4px solid #72aee6;">';
-        echo '<div class="timu-card-header">' . esc_html__('Unprocessed Images', 'timu') . ' <span style="font-size:0.8em; font-weight:normal;">(' . $query->found_posts . ')</span></div>';
-        echo '<div class="timu-log-container">';
-        
-        if ( $query->have_posts() ) {
-            echo '<table class="wp-list-table widefat fixed striped"><thead><tr><th style="width:65px;">Preview</th><th>Filename</th><th style="width:100px;">Actions</th></tr></thead><tbody>';
-            foreach ( $query->posts as $img ) {
-                echo '<tr>';
-                echo '<td>' . wp_get_attachment_image( $img->ID, array(40,40) ) . '</td>';
-                echo '<td><strong>' . esc_html( basename( get_attached_file( $img->ID ) ) ) . '</strong></td>';
-                echo '<td><button type="button" class="button button-small timu-process-single" data-id="'.$img->ID.'">' . esc_html__('Process', 'timu') . '</button></td>';
-                echo '</tr>';
-            }
-            echo '</tbody></table>';
-            echo '<div class="tablenav"><div class="tablenav-pages">' . paginate_links( array( 'base' => add_query_arg( 'unpaged', '%#%' ), 'total' => $query->max_num_pages, 'current' => $page ) ) . '</div></div>';
-        } else {
-            echo '<p style="padding:20px; color:#46b450; font-weight:600;">' . esc_html__('All images optimized!', 'timu') . '</p>';
-        }
-        echo '</div></div>';
-        wp_reset_postdata();
-    }
-
-    /**
-     * 5. LOG: PROCESSED IMAGES (PAGINATED)
-     */
-    public function render_processing_log() {
-        $prefix = $this->get_internal_prefix();
-        $savings_key = "_{$prefix}_savings";
-        $page = isset( $_GET['paged'] ) ? max( 1, intval( $_GET['paged'] ) ) : 1;
-        
-        $query = new WP_Query( array(
-            'post_type'      => 'attachment',
-            'posts_per_page' => 20,
-            'paged'          => $page,
-            'meta_query'     => array( array( 'key' => $savings_key, 'compare' => 'EXISTS' ) )
-        ) );
-
-        echo '<div class="timu-card timu-processing-log" style="margin-top:20px;">';
-        echo '<div class="timu-card-header">' . esc_html__('Converted Images', 'timu') . '</div>';
-        echo '<div class="timu-log-container">';
-        
-        if ( $query->have_posts() ) {
-            echo '<table class="wp-list-table widefat fixed striped"><thead><tr><th style="width:65px;">Preview</th><th>Original</th><th>Savings</th><th style="width:100px;">Actions</th></tr></thead><tbody>';
-            foreach ( $query->posts as $img ) {
-                $orig = get_post_meta( $img->ID, "_{$prefix}_original_path", true );
-                $save = (int)get_post_meta( $img->ID, $savings_key, true );
-                echo '<tr>';
-                echo '<td>' . wp_get_attachment_image( $img->ID, array(40,40) ) . '</td>';
-                echo '<td><strong>' . esc_html( basename( $orig ?: get_attached_file( $img->ID ) ) ) . '</strong></td>';
-                echo '<td style="color:#46b450; font-weight:600;">' . $this->core->format_bytes( $save ) . '</td>';
-                echo '<td><button type="button" class="button button-small timu-restore-single" data-id="'.$img->ID.'">' . esc_html__('Restore', 'timu') . '</button></td>';
-                echo '</tr>';
-            }
-            echo '</tbody></table>';
-            echo '<div class="tablenav"><div class="tablenav-pages">' . paginate_links( array( 'base' => add_query_arg( 'paged', '%#%' ), 'total' => $query->max_num_pages, 'current' => $page ) ) . '</div></div>';
-        } else {
-            echo '<p style="padding:20px;">' . esc_html__('No images processed yet.', 'timu') . '</p>';
-        }
-        echo '</div>';
-        
-        if ( $query->have_posts() ) {
-            $total_saved = $this->core->calculate_total_savings( $savings_key );
-            echo '<div class="timu-log-footer" style="background:#f6f7f7; padding:12px; border-top:1px solid #dcdcde; display:flex; justify-content:space-between; font-weight:bold;">';
-            echo '<span>' . esc_html__('Total Space Saved:', 'timu') . '</span><span style="color:#46b450; font-size:1.2em;">' . $this->core->format_bytes( $total_saved ) . '</span></div>';
-        }
-        echo '</div>';
-        wp_reset_postdata();
-    }
-
-    /**
-     * 6. SHARED UI ELEMENTS (Moved from Core)
-     */
-    public function render_core_header() {
-        $donate_url = 'https://thisismyurl.com/donate/?source=' . urlencode( (string)$this->core->plugin_slug );
-        ?>
-        <div class="timu-header">
-            <h1><?php echo esc_html( get_admin_page_title() ); ?> 
-                <span class="agency-by">by <a href="<?php echo esc_url( $donate_url ); ?>" target="_blank">thisismyurl.com</a></span>
-            </h1>
-        </div>
-        <?php
-    }
-
-    public function render_core_footer() {
-        ?>
-        <div class="clear"></div>
-        <div class="timu-footer-links" style="margin-top: 50px; border-top: 1px solid #dcdcde; padding-top: 20px; font-size: 11px; color: #646970;">
-            <p>&copy; <?php echo esc_html( date( 'Y' ) ); ?> <a href="https://thisismyurl.com/" target="_blank" style="color: #646970; text-decoration: none;">thisismyurl.com</a></p>
-        </div>
-        <?php
-    }
-
-    public function render_core_sidebar( $extra_content = '' ) {
-        $fs    = $this->core->init_fs();
-        $tools = $this->fetch_other_tools();
-        $banner_url = $this->core->plugin_url . 'assets/banner.png';
-        ?>
-        <div id="postbox-container-1" class="postbox-container timu-marketing-sidebar" style="width: 280px; float: right; margin-left: 20px;">
-            <div class="postbox">
-                <div class="inside">
-                    <?php do_action( 'timu_sidebar_under_banner', $this->core->plugin_slug ); ?>
-                    <?php if ( ! empty( $extra_content ) ) echo '<div style="margin-top:15px;">' . wp_kses_post( $extra_content ) . '</div>'; ?>
-                </div>
-            </div>
-            <div class="postbox">
-                <h2 class="hndle"><span><?php esc_html_e( 'Other Tools', 'timu' ); ?></span></h2>
-                <div class="inside">
-                    <?php if ( is_array( $tools ) ) : foreach ( array_slice( $tools, 0, 5 ) as $tool ) : ?>
-                        <div class="timu-tool-item" style="margin-bottom:15px; border-bottom:1px solid #f0f0f1; padding-bottom:10px;">
-                            <strong><?php echo esc_html( $tool['name'] ); ?></strong><br>
-                            <a href="#" class="timu-install-btn" data-slug="<?php echo esc_attr( $tool['slug'] ); ?>" data-url="<?php echo esc_url( $tool['url'] ); ?>"><?php esc_html_e( 'Install Now &rarr;', 'timu' ); ?></a>
-                        </div>
-                    <?php endforeach; endif; ?>
-                </div>
-            </div>
-        </div>
-        <?php
-    }
-
-   
-    /**
- * 6. SIDEBAR BULK ACTIONS
- * * Modified to prevent duplication by verifying the current page slug.
- * * @param string $current_slug The slug passed by the do_action call.
- */
-public function render_default_sidebar_actions( $current_slug = '' ) {
-    // SECURITY CHECK: Only render if the slug matches this specific plugin instance.
-    if ( $current_slug !== $this->core->plugin_slug ) {
-        return;
-    }
-
-    $prefix = $this->get_internal_prefix();
-    $check_key = "_{$prefix}_savings";
-
-    $has_meta = get_posts( array(
-        'post_type'      => 'attachment',
-        'posts_per_page' => 1,
-        'meta_query'     => array( array( 'key' => $check_key, 'compare' => 'EXISTS' ) ),
-        'fields'         => 'ids',
-        'no_found_rows'  => true,
-    ) );
-
-    $is_enabled  = (int) $this->core->get_plugin_option( 'enabled', 1 );
-    $is_disabled = ( 1 !== $is_enabled );
-    $btn_text    = $is_disabled ? __('Enable Plugin to Process', 'timu') : __('Bulk Process Library', 'timu');
-
-    ?>
-    <div class="timu-bulk-actions" style="padding: 10px 0; border-bottom: 1px solid #f0f0f1; margin-bottom: 10px;">
-        <h4 style="margin: 0 0 10px;"><?php esc_html_e( 'Bulk Operations', 'timu' ); ?></h4>
-        <button type="button" id="timu-run-bulk" class="button button-primary" style="width: 100%; margin-bottom: 8px;" <?php disabled($is_disabled); ?>>
-            <?php echo esc_html($btn_text); ?>
-        </button>
-
-        <?php if ( ! empty( $has_meta ) ) : ?>
-            <button type="button" id="timu-undo-bulk" class="button button-secondary" style="width: 100%;">
-                <?php esc_html_e( 'Restore All', 'timu' ); ?>
-            </button>
-        <?php endif; ?>
-    </div>
-    <?php
-}
-
-    /**
-     * 7. INTERNAL UTILITIES
-     */
-    private function fetch_other_tools() {
-        $tools = get_transient( 'timu_global_tools_cache' );
-        if ( is_array( $tools ) ) return $tools;
-        
-        $res = wp_remote_get( 'https://thisismyurl.com/wp-json/api/v1/plugins/', array( 'timeout' => 8 ) );
-        if ( is_wp_error( $res ) ) return array();
-        
-        $data = json_decode( wp_remote_retrieve_body( $res ), true );
-        $tools = array_filter( (array)$data, function( $i ) { 
-            return isset( $i['slug'] ) && $i['slug'] !== $this->core->plugin_slug; 
-        } );
-        
-        set_transient( 'timu_global_tools_cache', $tools, 12 * HOUR_IN_SECONDS );
-        return $tools;
-    }
-
-    private function get_internal_prefix() {
-        if ( strpos( $this->core->plugin_slug, 'webp' ) !== false ) return 'webp';
-        if ( strpos( $this->core->plugin_slug, 'heic' ) !== false ) return 'heic';
-        if ( strpos( $this->core->plugin_slug, 'avif' ) !== false ) return 'avif';
-        return 'timu';
-    }
+	public function render_processing_log(): void {
+		$stats = $this->core->get_bulk_stats();
+		if ( $stats['processed'] > 0 ) {
+			echo '<div class="timu-card"><div class="timu-card-header">' . esc_html__( 'Converted Images', 'timu' ) . ' (' . $stats['processed'] . ')</div></div>';
+		}
+	}
 }
