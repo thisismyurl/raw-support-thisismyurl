@@ -1,6 +1,6 @@
 {
     "name": "thisismyurl/raw-support-thisismyurl",
-    "description": "",
+    "description": "Safely enable RAW uploads and management in the WordPress Media Library..",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
     "authors": [
@@ -16,7 +16,7 @@
     },
     "autoload": {
         "psr-4": {
-            "ThisIsMyUrl\\RAW_SUPPORT_THISISMYURL\\": "src/"
+            "ThisIsMyUrl\\RAWSUPPORTTHISISMYURL\\": "src/"
         }
     },
     "config": {

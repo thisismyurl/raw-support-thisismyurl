@@ -12,7 +12,7 @@ Because we use this codebase as a teaching tool for new developers, **clear docu
 * If you can write a "How-to" guide for a specific feature, that helps our students immensely.
 
 ### 2. Reporting Bugs
-* Check the [Issues tab](https://github.com/thisismyurl/thisismyurl-raw-support/issues) to see if the bug has already been reported.
+* Check the [Issues tab](https://github.com/thisismyurl/raw-support-thisismyurl/issues) to see if the bug has already been reported.
 * If not, open a new issue. Please include steps to reproduce the bug and your environment details (WordPress version, PHP version).
 
 ### 3. Code Contributions

@@ -6,7 +6,7 @@
  * It coordinates sub-modules and handles global licensing/filtering.
  *
  * @package     TIMU_Core
- * @version     1.2601.031250
+ * @version     1.2601.041030
  * @since       1.0.0
  */
 
@@ -62,6 +62,12 @@ abstract class TIMU_Core_v1 {
 
 	/**
 	 * Constructor
+	 *
+	 * @param string $slug   Plugin slug.
+	 * @param string $url    Plugin URL.
+	 * @param string $group  Options group.
+	 * @param string $icon   Icon path.
+	 * @param string $parent Parent menu slug.
 	 */
 	public function __construct( 
 		string $slug, 
@@ -96,25 +102,47 @@ abstract class TIMU_Core_v1 {
 	}
 
 	/**
-	 * Loads internal components.
+	 * Loads internal components from the includes folder.
 	 */
 	private function load_components(): void {
-		require_once 'class-timu-vault.php';
-		$this->vault = new TIMU_Vault_v1( $this );
+		$dir = plugin_dir_path( __FILE__ ) . 'includes/';
+
+		$files = [
+			'vault'     => $dir . 'class-timu-vault.php',
+			'admin'     => $dir . 'class-timu-admin.php',
+			'ajax'      => $dir . 'class-timu-ajax.php',
+			'processor' => $dir . 'class-timu-processor.php',
+		];
+
+		foreach ( $files as $key => $file ) {
+			if ( file_exists( $file ) ) {
+				require_once $file;
+			} else {
+				error_log( "TIMU Core: Missing component file at {$file}" );
+			}
+		}
+
+		if ( class_exists( __NAMESPACE__ . '\TIMU_Vault_v1' ) ) {
+			$this->vault = new TIMU_Vault_v1( $this );
+		}
 
 		if ( is_admin() || wp_doing_ajax() ) {
-			require_once 'class-timu-admin.php';
-			require_once 'class-timu-ajax.php';
-			require_once 'class-timu-processor.php';
-
-			$this->processor = new TIMU_Processor_v1( $this );
-			$this->ajax      = new TIMU_Ajax_v1( $this );
-			$this->admin     = new TIMU_Admin_v1( $this );
+			if ( class_exists( __NAMESPACE__ . '\TIMU_Processor_v1' ) ) {
+				$this->processor = new TIMU_Processor_v1( $this );
+			}
+			if ( class_exists( __NAMESPACE__ . '\TIMU_Ajax_v1' ) ) {
+				$this->ajax = new TIMU_Ajax_v1( $this );
+			}
+			if ( class_exists( __NAMESPACE__ . '\TIMU_Admin_v1' ) ) {
+				$this->admin = new TIMU_Admin_v1( $this );
+			}
 		}
 	}
 
 	/**
 	 * UI Bridge: Settings API registration.
+	 *
+	 * @param array $blueprint The settings array.
 	 */
 	public function init_settings_generator( array $blueprint ): void {
 		$this->settings_blueprint = $blueprint;
@@ -146,10 +174,10 @@ abstract class TIMU_Core_v1 {
 			];
 		}
 
-		$old_size   = filesize( $file_path );
-		$vault_path = $this->vault->get_vault_path( $file_path );
+		$old_size   = filesize( (string) $file_path );
+		$vault_path = $this->vault->get_vault_path( (string) $file_path );
 
-		if ( ! $this->vault->move_to_vault( $file_path, $vault_path ) ) {
+		if ( ! $this->vault->move_to_vault( (string) $file_path, $vault_path ) ) {
 			return [
 				'success' => false,
 				'message' => __( 'Vaulting failed. Check permissions.', 'timu' ),
@@ -173,7 +201,6 @@ abstract class TIMU_Core_v1 {
 			update_post_meta( $id, "_{$prefix}_original_path", $vault_path );
 			update_post_meta( $id, $savings_key, ( $old_size - filesize( $result['file'] ) ) );
 			
-			// Invalidate all caches: savings, lookups, and bulk stats.
 			$this->invalidate_savings_cache( $savings_key );
 			$this->invalidate_bulk_stats();
 
@@ -184,7 +211,7 @@ abstract class TIMU_Core_v1 {
 		}
 
 		// Revert if failed.
-		$this->vault->recover_from_vault( $vault_path, $file_path );
+		$this->vault->recover_from_vault( $vault_path, (string) $file_path );
 		return [
 			'success' => false,
 			'message' => __( 'Optimization failed.', 'timu' ),
@@ -206,7 +233,6 @@ abstract class TIMU_Core_v1 {
 
 		$prefix = $this->get_data_prefix();
 
-		// Count Unprocessed.
 		$unprocessed = new \WP_Query( [
 			'post_type'      => 'attachment',
 			'post_mime_type' => [ 'image/jpeg', 'image/png' ],
@@ -216,7 +242,6 @@ abstract class TIMU_Core_v1 {
 			'no_found_rows'  => false,
 		] );
 
-		// Count Processed.
 		$processed = new \WP_Query( [
 			'post_type'      => 'attachment',
 			'meta_query'     => [ [ 'key' => "_{$prefix}_savings", 'compare' => 'EXISTS' ] ],
@@ -230,9 +255,7 @@ abstract class TIMU_Core_v1 {
 			'processed'   => (int) $processed->found_posts,
 		];
 
-		// Cache for 1 hour.
 		wp_cache_set( $cache_key, $stats, 'timu_core', HOUR_IN_SECONDS );
-
 		return $stats;
 	}
 
@@ -245,6 +268,8 @@ abstract class TIMU_Core_v1 {
 
 	/**
 	 * Determines the data prefix based on plugin slug.
+	 *
+	 * @return string
 	 */
 	public function get_data_prefix(): string {
 		return match ( true ) {
@@ -257,6 +282,10 @@ abstract class TIMU_Core_v1 {
 
 	/**
 	 * Helper to get plugin options.
+	 *
+	 * @param string $key     Option key.
+	 * @param mixed  $default Default value.
+	 * @return mixed
 	 */
 	public function get_plugin_option( string $key = '', mixed $default = '' ): mixed {
 		$options = get_option( $this->plugin_slug . '_options', [] );
@@ -268,6 +297,8 @@ abstract class TIMU_Core_v1 {
 
 	/**
 	 * Initializes WP Filesystem.
+	 *
+	 * @return \WP_Filesystem_Base
 	 */
 	public function init_fs(): \WP_Filesystem_Base {
 		if ( null === $this->fs ) {
@@ -283,6 +314,10 @@ abstract class TIMU_Core_v1 {
 
 	/**
 	 * Formats bytes into human-readable units.
+	 *
+	 * @param int $bytes     Byte count.
+	 * @param int $precision Decimal precision.
+	 * @return string
 	 */
 	public function format_bytes( int $bytes, int $precision = 2 ): string {
 		$units = [ 'B', 'KB', 'MB', 'GB', 'TB' ];
@@ -295,6 +330,9 @@ abstract class TIMU_Core_v1 {
 
 	/**
 	 * Calculates total savings with Object Cache.
+	 *
+	 * @param string $savings_key The meta key for savings.
+	 * @return int
 	 */
 	public function calculate_total_savings( string $savings_key ): int {
 		$cache_key = "{$this->plugin_slug}_total_savings_{$savings_key}";
@@ -315,6 +353,8 @@ abstract class TIMU_Core_v1 {
 
 	/**
 	 * Invalidates the savings cache.
+	 *
+	 * @param string $savings_key The meta key.
 	 */
 	public function invalidate_savings_cache( string $savings_key ): void {
 		wp_cache_delete( "{$this->plugin_slug}_total_savings_{$savings_key}", 'timu_core' );
@@ -334,14 +374,20 @@ abstract class TIMU_Core_v1 {
 	}
 
 	/**
-	 * Enqueues admin assets.
+	 * Enqueues admin assets with new sub-directory logic.
+	 * * Note: We now look in /assets/css/ and /assets/js/ to maintain 2026 standards.
+	 *
+	 * @param string $hook The current admin page hook.
 	 */
 	public function enqueue_core_assets( string $hook ): void {
-		wp_enqueue_style( 'timu-core-css', $this->plugin_url . 'core/assets/shared-admin.css', [], '1.26' );
-		wp_enqueue_script( 'timu-core-ui', $this->plugin_url . 'core/assets/shared-admin.js', [ 'jquery' ], '1.26', true );
+		// CSS lives in the css subdirectory now.
+		wp_enqueue_style( 'timu-core-css', $this->plugin_url . 'core/assets/css/shared-admin.css', [], '1.26' );
+		
+		// JS lives in the js subdirectory.
+		wp_enqueue_script( 'timu-core-ui', $this->plugin_url . 'core/assets/js/shared-admin.js', [ 'jquery' ], '1.26', true );
 
 		if ( isset( $_GET['page'] ) && $_GET['page'] === $this->plugin_slug ) {
-			wp_enqueue_script( 'timu-core-bulk', $this->plugin_url . 'core/assets/shared-bulk.js', [ 'jquery', 'timu-core-ui' ], '1.26', true );
+			wp_enqueue_script( 'timu-core-bulk', $this->plugin_url . 'core/assets/js/shared-bulk.js', [ 'jquery', 'timu-core-ui' ], '1.26', true );
 			wp_enqueue_style( 'wp-color-picker' );
 			wp_enqueue_script( 'wp-color-picker' );
 			wp_enqueue_media();
@@ -360,12 +406,15 @@ abstract class TIMU_Core_v1 {
 
 	/**
 	 * Adds action links to the plugin list.
+	 *
+	 * @param array $links Array of links.
+	 * @return array
 	 */
 	public function add_plugin_action_links( array $links ): array {
 		$settings_url = admin_url( $this->menu_parent . '?page=' . $this->plugin_slug );
 		$links[]      = '<a href="' . esc_url( $settings_url ) . '">' . esc_html__( 'Settings', 'timu' ) . '</a>';
 
-		$label  = $this->is_licensed() ? __( 'Support', 'timu' ) : __( 'Register', 'timu' );
+		$label   = $this->is_licensed() ? __( 'Support', 'timu' ) : __( 'Register', 'timu' );
 		$links[] = sprintf(
 			'<a href="https://thisismyurl.com/%s/" target="_blank" rel="noopener">%s</a>',
 			esc_attr( $this->plugin_slug ),
@@ -377,6 +426,9 @@ abstract class TIMU_Core_v1 {
 
 	/**
 	 * Replaces image URLs in content with Object Cache mapping.
+	 *
+	 * @param string $content Post content.
+	 * @return string
 	 */
 	public function filter_content_images( string $content ): string {
 		if ( is_admin() || empty( $content ) ) {
@@ -391,16 +443,16 @@ abstract class TIMU_Core_v1 {
 			$pattern,
 			function( array $m ) use ( $prefix, $target_ext ) {
 				$url       = $m[2];
-				$cache_key = 'url_to_id_' . md5( $url );
+				$cache_key = 'url_to_id_' . md5( (string) $url );
 				$id        = wp_cache_get( $cache_key, 'timu_url_lookups' );
 
 				if ( false === $id ) {
-					$id = (int) attachment_url_to_postid( $url );
+					$id = (int) attachment_url_to_postid( (string) $url );
 					wp_cache_set( $cache_key, $id, 'timu_url_lookups', DAY_IN_SECONDS );
 				}
 
 				if ( $id > 0 && get_post_meta( $id, "_{$prefix}_savings", true ) ) {
-					return $m[1] . '="' . preg_replace( '/\.(jpe?g|png)$/i', '.' . $target_ext, $url ) . '"';
+					return $m[1] . '="' . preg_replace( '/\.(jpe?g|png)$/i', '.' . $target_ext, (string) $url ) . '"';
 				}
 				
 				return $m[0];
@@ -411,6 +463,8 @@ abstract class TIMU_Core_v1 {
 
 	/**
 	 * Validates license status with Persistent Transients.
+	 *
+	 * @return bool
 	 */
 	public function is_licensed(): bool {
 		$key = (string) $this->get_plugin_option( 'license_key', '' );
@@ -455,6 +509,9 @@ abstract class TIMU_Core_v1 {
 
 	/**
 	 * Sanitizes plugin options and clears relevant transients.
+	 *
+	 * @param array $input Input array.
+	 * @return array
 	 */
 	public function sanitize_core_options( array $input ): array {
 		delete_transient( "{$this->plugin_slug}_license_check" );
@@ -470,6 +527,10 @@ abstract class TIMU_Core_v1 {
 
 	/**
 	 * Bridge for media sidebar integration.
+	 *
+	 * @param array    $form_fields Form fields.
+	 * @param \WP_Post $post        Post object.
+	 * @return array
 	 */
 	public function add_media_sidebar_actions( array $form_fields, \WP_Post $post ): array {
 		return $this->admin?->add_media_sidebar_actions( $form_fields, $post ) ?? $form_fields;

@@ -1,5 +1,5 @@
 Privacy Policy for RAW Support by thisismyurl.com
-Your privacy is a priority. This document outlines exactly what data is handled by [Plugin Name], how it is used, and���more importantly���what is not collected.
+Your privacy is a priority. This document outlines exactly what data is handled by [Plugin Name], how it is used, and���������more importantly���������what is not collected.
 
 1. No Default Tracking
 By default, RAW Support by thisismyurl.com is a "privacy-first" plugin.
